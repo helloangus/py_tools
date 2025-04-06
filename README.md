@@ -54,5 +54,7 @@ Shopify发货单自动化处理工具，支持：
 
 ### 使用方式
 ```bash
-python shopify_packing_list_modify.py
+python shopify_packing_list_modifier.py
 ```
+
+> 另：可使用`pyinstaller --onefile xxx.py`的方式将其转化为一个exe文件

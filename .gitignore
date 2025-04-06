@@ -1,0 +1,6 @@
+*output/
+*tmp/
+*dist/
+*build/
+*.pdf
+*.spec
