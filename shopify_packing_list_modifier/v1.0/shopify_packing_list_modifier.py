@@ -2,6 +2,8 @@ import pdf_editor
 import os
 import re
 from datetime import datetime
+from reportlab.lib.pagesizes import A4
+from pypdf import PdfReader, PdfWriter, Transformation
 
 def find_latest_pdf():
     pdf_files = [f for f in os.listdir() if f.lower().endswith('.pdf')]
@@ -141,6 +143,85 @@ def process_pdf_modifications(editor, output_file, blocks):
     editor.modify_pdf(modifications, output_pdf)
     print(f'\n修改后的PDF已保存至: {output_pdf}')
 
+    return output_pdf
+
+def split_a4_to_a5_vertical(input_pdf_path):
+    """
+    将A4尺寸的PDF文件垂直分割为两个A5尺寸的PDF文件，并保存到指定目录。
+
+    参数:
+    input_pdf_path (str): 输入的A4尺寸PDF文件路径。
+
+    返回值:
+    bool: 如果分割成功返回True，否则返回False。
+    """
+    output_dir = 'output'
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+    except PermissionError:
+        print(f"错误：无权限创建目录 {output_dir}")
+        return None
+
+    # 使用输入的 PDF 文件名并添加 "_A5" 后缀
+    base_name = os.path.splitext(os.path.basename(input_pdf_path))[0]
+    pdf_name = f"{base_name}_A5.pdf"
+    output_pdf_path = os.path.join(output_dir, pdf_name)
+
+    try:
+        os.makedirs(os.path.dirname(output_pdf_path), exist_ok=True)
+        
+        reader = PdfReader(input_pdf_path)
+        writer = PdfWriter()
+
+        # 定义标准尺寸（单位：点）
+        A4_WIDTH, A4_HEIGHT = A4
+        A5_HEIGHT = A4_HEIGHT / 2  # 420.945pt
+
+        for page in reader.pages:
+            # ==================================================================
+            # 处理上半部分 (关键修正点)
+            # ==================================================================
+            # 1. 创建新A5页面
+            top_page = writer.add_blank_page(width=A4_WIDTH, height=A5_HEIGHT)
+            
+            # 2. 克隆原始页面
+            top_clone = page.clone(pdf_dest=writer)
+            
+            # 3. 设置裁剪区域
+            top_clone.cropbox.upper_left = (0, A4_HEIGHT)        # 原页面上半部分
+            top_clone.cropbox.lower_right = (A4_WIDTH, A5_HEIGHT)
+            
+            # 4. 变换方向修正（关键！）
+            transform = Transformation().translate(
+                tx=0, 
+                ty=-(A4_HEIGHT - A5_HEIGHT)  # 正确计算平移量
+            )
+            
+            # 5. 应用变换并合并
+            top_page.merge_page(top_clone)
+            top_page.add_transformation(transform)  # 先合并后变换
+
+            # ==================================================================
+            # 处理下半部分 (已验证正确)
+            # ==================================================================
+            bottom_page = writer.add_blank_page(width=A4_WIDTH, height=A5_HEIGHT)
+            bottom_clone = page.clone(pdf_dest=writer)
+            bottom_clone.cropbox.upper_left = (0, A5_HEIGHT)
+            bottom_clone.cropbox.lower_right = (A4_WIDTH, 0)
+            bottom_page.merge_page(bottom_clone)
+
+        # 保存输出文件
+        with open(output_pdf_path, "wb") as f:
+            writer.write(f)
+            
+        print(f"生成成功：{output_pdf_path}")
+        return True
+
+    except Exception as e:
+        print(f"处理失败：{str(e)}")
+        return False
+
+
 if __name__ == "__main__":
     input_pdf = select_pdf_interactive()
     if not input_pdf:
@@ -168,4 +249,6 @@ if __name__ == "__main__":
                 f.write(f'\n\n=== 倒数第三块索引 ===\n{third_last_index}')
     
     # 在main流程末尾添加处理
-    process_pdf_modifications(editor, output_file, blocks)
+    A4_pdf = process_pdf_modifications(editor, output_file, blocks)
+
+    split_a4_to_a5_vertical(A4_pdf)

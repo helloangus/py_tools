@@ -1,6 +1,8 @@
-*output/
-*tmp/
-*dist/
-*build/
+**/output/
+**/tmp/
+**/dist/
+**/build/
+**/__pycache__/
 *.pdf
 *.spec
+**/preview.txt
